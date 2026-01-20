@@ -57,7 +57,7 @@ export default function WaterCalculator() {
       roIds: [1, 2],
       wellIds: [1, 2, 3, 4, 5],
       numPonds: 1,
-      roRunDays: 7, // Default to match typical storage cycle
+      roRunDays: 7, // Duration to fill storage
       supplyBufferHours: 12,
       customPeakDemand: 0 
     },
@@ -96,60 +96,76 @@ export default function WaterCalculator() {
 
   const scenarioResults = scenarios.map(scenario => {
     const totalTrees = getScenarioTrees(scenario);
-    const { output: desalCapacity, input: roInputCapacity } = getScenarioRoCapacities(scenario);
+    const { output: activeROOutputCap, input: activeROInputCap } = getScenarioRoCapacities(scenario);
     const wellCapacity = getScenarioWellCapacity(scenario);
 
+    // 1. Mixing Ratio
     let desalRatio = (config.wellSalinity - config.targetSalinity) / (config.wellSalinity - config.desalSalinity);
     desalRatio = Math.max(0, Math.min(1, desalRatio));
     
-    // Peak Demand & Storage (Demand Side)
+    // 2. Volumes (Demand Side)
     const peakMultiplier = (scenario.customPeakDemand && Number(scenario.customPeakDemand) > 0)
       ? Number(scenario.customPeakDemand)
       : 17.00; 
 
     const peakMonthTotal = peakMultiplier * totalTrees;
     const dailyPeakDemand = peakMonthTotal / 31;
-    const storageRequired = dailyPeakDemand * config.storageDays; // Global config controls total buffer size
+    const storageRequired = dailyPeakDemand * config.storageDays; // Total target storage
     
-    // Pond Calculations
+    const desalVolNeeded = storageRequired * desalRatio;
+    const wellVolForMixing = storageRequired * (1 - desalRatio);
+    
+    // Recovery efficiency based on capacities
+    const roRecoveryRate = activeROInputCap > 0 ? (activeROOutputCap / activeROInputCap) : 1;
+    const rawWaterForRO = desalVolNeeded > 0 ? (desalVolNeeded / roRecoveryRate) : 0;
+    const totalWellWaterNeeded = wellVolForMixing + rawWaterForRO;
+
+    // 3. Pond Calculations
     const numPonds = Math.max(1, parseInt(scenario.numPonds) || 1);
     const volumePerPond = storageRequired / numPonds;
     const pondDepth = config.pondDepth || 1;
     const areaPerPond = volumePerPond / pondDepth;
     const sidePerPond = Math.sqrt(areaPerPond);
 
-    // Supply Pond Calculations
+    // Supply Pond (Calculated from Supply Buffer Hours * RO Input Capacity)
     const supplyBufferHours = Number(scenario.supplyBufferHours) || 0;
-    const supplyPondVolume = roInputCapacity * supplyBufferHours;
+    const supplyPondVolume = activeROInputCap * supplyBufferHours;
     const supplyPondArea = supplyPondVolume / pondDepth;
     const supplyPondSide = Math.sqrt(supplyPondArea);
 
-    // Volumes Needed
-    const desalVolNeeded = storageRequired * desalRatio;
-    const wellVolForMixing = storageRequired * (1 - desalRatio);
-    const roRecovery = roInputCapacity > 0 ? (desalCapacity / roInputCapacity) : 1; 
-    const rawWaterForRO = desalVolNeeded > 0 ? (desalVolNeeded / roRecovery) : 0;
-    const totalWellWaterNeeded = wellVolForMixing + rawWaterForRO;
-
-    // Operation Hours (Supply Side - Based on "RO Run Days")
-    // How many days do we have to produce the 'storageRequired' volume?
+    // 4. Operation & Flow Rate Analysis
     const roRunDays = Number(scenario.roRunDays) || config.storageDays; 
     
-    const totalOpHours = desalCapacity > 0 ? desalVolNeeded / desalCapacity : 0;
-    const dailyOpHours = totalOpHours / roRunDays; // Spread load over Run Days
-
+    // Daily Averages
+    const totalOpHours = activeROOutputCap > 0 ? desalVolNeeded / activeROOutputCap : 0;
+    const dailyOpHours = totalOpHours / roRunDays;
+    
     const totalWellOpHours = wellCapacity > 0 ? totalWellWaterNeeded / wellCapacity : 0;
-    const dailyWellOpHours = totalWellOpHours / roRunDays; // Spread load over Run Days
+    const dailyWellOpHours = totalWellOpHours / roRunDays;
+
+    // 5. Instantaneous Flow Balance (Hydraulics)
+    // When RO is ON at full capacity, how much water do we need per hour?
+    const mixingRatioVol = desalVolNeeded > 0 ? (wellVolForMixing / desalVolNeeded) : 0;
+    const instantaneousMixingDemand = activeROOutputCap * mixingRatioVol;
+    
+    const instantaneousTotalDemand = activeROInputCap + instantaneousMixingDemand;
+    const flowBalance = wellCapacity - instantaneousTotalDemand;
+    const isFlowDeficit = flowBalance < 0;
 
     return {
       scenario,
       totalTrees,
-      desalCapacity,
-      roInputCapacity,
+      // Capacities
+      activeROOutputCap,
+      activeROInputCap,
       wellCapacity,
+      // Vols
       desalRatio,
       storageRequired,
-      
+      desalVolNeeded,
+      wellVolForMixing,
+      rawWaterForRO,
+      totalWellWaterNeeded,
       // Ponds
       numPonds,
       volumePerPond,
@@ -158,19 +174,17 @@ export default function WaterCalculator() {
       supplyPondVolume,
       supplyPondArea,
       supplyPondSide,
-
-      // Volumes
-      desalVolNeeded,
-      wellVolForMixing,
-      rawWaterForRO,
-      totalWellWaterNeeded,
-
       // Ops
       dailyOpHours,
       dailyWellOpHours,
       dailyPeakDemand,
       peakMultiplier,
-      roRunDays // Pass through for UI
+      roRunDays,
+      // Hydraulics
+      instantaneousMixingDemand,
+      instantaneousTotalDemand,
+      flowBalance,
+      isFlowDeficit
     };
   });
 
@@ -529,7 +543,7 @@ export default function WaterCalculator() {
               </div>
 
               {/* Mixing & Volume Details */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="bg-blue-50 rounded-xl p-5 border border-blue-100">
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-2xl">🏭</span>
@@ -555,26 +569,69 @@ export default function WaterCalculator() {
                   <div className="text-xs text-green-700 font-medium space-y-1">
                     <div>Direct to Mixing: <strong>{result.wellVolForMixing.toLocaleString(undefined, {maximumFractionDigits:0})} m³</strong></div>
                     <div>To Supply Pond: <strong>{result.rawWaterForRO.toLocaleString(undefined, {maximumFractionDigits:0})} m³</strong></div>
-                    <div>Op Hours: <strong>{result.dailyWellOpHours.toFixed(1)} h/day</strong> (over {result.roRunDays} days)</div>
+                    <div>Total Op Hours: <strong>{result.dailyWellOpHours.toFixed(1)} h/day</strong> (over {result.roRunDays} days)</div>
                   </div>
                 </div>
 
-                <div className="bg-orange-50 rounded-xl p-5 border border-orange-100">
+                {/* Hydraulic Balance */}
+                <div className={`rounded-xl p-5 border ${result.isFlowDeficit ? 'bg-red-50 border-red-100' : 'bg-teal-50 border-teal-100'}`}>
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-2xl">⚡</span>
                     <div>
-                      <div className="text-xs font-bold text-orange-600 uppercase">System Status</div>
-                      <div className="text-lg font-bold text-gray-800">
+                      <div className={`text-xs font-bold uppercase ${result.isFlowDeficit ? 'text-red-600' : 'text-teal-600'}`}>
+                        Hydraulic Balance
+                      </div>
+                      <div className={`text-lg font-bold ${result.isFlowDeficit ? 'text-red-800' : 'text-teal-800'}`}>
+                        {result.isFlowDeficit ? "⚠ FLOW DEFICIT" : "✅ BALANCED"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Active Well Cap:</span>
+                      <span className="font-bold">{result.wellCapacity} m³/hr</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Max RO Demand:</span>
+                      <span className="font-bold">{result.activeROInputCap} m³/hr</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Mixing Demand:</span>
+                      <span className="font-bold">{result.instantaneousMixingDemand.toFixed(0)} m³/hr</span>
+                    </div>
+                    <div className={`flex justify-between items-center pt-2 border-t ${result.isFlowDeficit ? 'border-red-200 text-red-700' : 'border-teal-200 text-teal-700'}`}>
+                      <span className="font-bold">Net Flow:</span>
+                      <span className="font-bold">{result.flowBalance.toFixed(0)} m³/hr</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* System Status (Load) */}
+                <div className={`rounded-xl p-5 border ${result.dailyOpHours > 24 || result.dailyWellOpHours > 24 ? 'bg-red-50 border-red-100' : 'bg-orange-50 border-orange-100'}`}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-2xl">⏱️</span>
+                    <div>
+                      <div className={`text-xs font-bold uppercase ${result.dailyOpHours > 24 || result.dailyWellOpHours > 24 ? 'text-red-600' : 'text-orange-600'}`}>
+                        System Status
+                      </div>
+                      <div className={`text-lg font-bold ${result.dailyOpHours > 24 || result.dailyWellOpHours > 24 ? 'text-red-800' : 'text-gray-800'}`}>
                         {result.dailyOpHours > 24 || result.dailyWellOpHours > 24 ? "⚠️ OVERLOAD" : "✅ OPTIMAL"}
                       </div>
                     </div>
                   </div>
-                  <div className="text-xs text-orange-800 space-y-1">
-                    <div className="flex justify-between"><span>Mixing:</span> <strong>{(result.desalRatio * 100).toFixed(0)}% Desal / {(100 - result.desalRatio*100).toFixed(0)}% Well</strong></div>
-                    <div className="flex justify-between"><span>Desal Load:</span> <strong>{(result.dailyOpHours/24*100).toFixed(0)}%</strong></div>
-                    <div className="flex justify-between"><span>Well Load:</span> <strong>{(result.dailyWellOpHours/24*100).toFixed(0)}%</strong></div>
+                  <div className="text-xs text-gray-700 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Mixing Ratio:</span> 
+                      <strong>{(result.desalRatio * 100).toFixed(0)}% / {(100 - result.desalRatio*100).toFixed(0)}%</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Desal Load:</span> 
+                      <strong className={result.dailyOpHours > 24 ? 'text-red-600' : ''}>{(result.dailyOpHours/24*100).toFixed(0)}%</strong>
+                    </div>
+                    <div className="flex justify-between"><span>Well Load:</span> <strong className={result.dailyWellOpHours > 24 ? 'text-red-600' : ''}>{(result.dailyWellOpHours/24*100).toFixed(0)}%</strong></div>
                   </div>
                 </div>
+
               </div>
             </div>
           </div>
