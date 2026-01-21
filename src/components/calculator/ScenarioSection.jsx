@@ -215,6 +215,10 @@ export function ScenarioSection({
                                         <span className="text-gray-600">Mixing Demand:</span>
                                         <span className="font-bold">{result.instantaneousMixingDemand.toFixed(0)} m³/hr</span>
                                     </div>
+                                    <div className="flex justify-between items-center text-purple-600">
+                                        <span className="font-medium">Pond Fill Time:</span>
+                                        <span className="font-bold">{result.supplyPondFillTime.toFixed(1)} hrs</span>
+                                    </div>
                                     <div className={`flex justify-between items-center pt-2 border-t ${result.isFlowDeficit ? 'border-red-200 text-red-700' : 'border-teal-200 text-teal-700'}`}>
                                         <span className="font-bold">Net Flow:</span>
                                         <span className="font-bold">{result.flowBalance.toFixed(0)} m³/hr</span>
@@ -242,9 +246,16 @@ export function ScenarioSection({
                                     </div>
                                 </div>
                                 <div className="text-xs text-gray-700 space-y-1">
-                                    <div className="flex justify-between">
+                                    <div className="flex justify-between items-center">
                                         <span>Mixing Ratio:</span>
-                                        <strong>{(result.desalRatio * 100).toFixed(0)}% / {(100 - result.desalRatio * 100).toFixed(0)}%</strong>
+                                        <div className="text-right">
+                                            <div className="font-bold text-gray-800">{(result.desalRatio * 100).toFixed(0)}% / {(100 - result.desalRatio * 100).toFixed(0)}%</div>
+                                            {result.desalRatio > 0 && result.desalRatio < 1 && (
+                                                <div className="text-[10px] text-purple-600 font-bold uppercase">
+                                                    RO {(result.desalRatio / (1 - result.desalRatio)).toFixed(1)} : 1 Well
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Desal Load:</span>

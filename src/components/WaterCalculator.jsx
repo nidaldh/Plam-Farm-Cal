@@ -22,7 +22,7 @@ export default function WaterCalculator() {
     wellSalinity: 4500,
     desalSalinity: 100,
     targetSalinity: 1200,
-    storageDays: 7, 
+    storageDays: 7,
     pondDepth: 4
   });
 
@@ -50,16 +50,16 @@ export default function WaterCalculator() {
   ]);
 
   const [scenarios, setScenarios] = useState([
-    { 
-      id: 1, 
-      name: 'All Plots', 
-      plotIds: [1, 2, 3, 4, 5], 
+    {
+      id: 1,
+      name: 'All Plots',
+      plotIds: [1, 2, 3, 4, 5],
       roIds: [1, 2],
       wellIds: [1, 2, 3, 4, 5],
       numPonds: 1,
-      roRunDays: 7, 
+      roRunDays: 7,
       supplyBufferHours: 12,
-      customPeakDemand: 0 
+      customPeakDemand: 0
     },
   ]);
 
@@ -70,7 +70,7 @@ export default function WaterCalculator() {
     if (plot.existingTrees != null) return plot.existingTrees;
     return Math.round((Number(plot.dunums) || 0) * palmsPerDunum);
   };
-  
+
   const getScenarioTrees = (scenario) => {
     return scenario.plotIds.reduce((sum, plotId) => {
       const plot = plots.find(p => p.id === plotId);
@@ -103,18 +103,18 @@ export default function WaterCalculator() {
 
     let desalRatio = (config.wellSalinity - config.targetSalinity) / (config.wellSalinity - config.desalSalinity);
     desalRatio = Math.max(0, Math.min(1, desalRatio));
-    
+
     const peakMultiplier = (scenario.customPeakDemand && Number(scenario.customPeakDemand) > 0)
       ? Number(scenario.customPeakDemand)
-      : 17.00; 
+      : 17.00;
 
     const peakMonthTotal = peakMultiplier * totalTrees;
     const dailyPeakDemand = peakMonthTotal / 31;
-    const storageRequired = dailyPeakDemand * config.storageDays; 
-    
+    const storageRequired = dailyPeakDemand * config.storageDays;
+
     const desalVolNeeded = storageRequired * desalRatio;
     const wellVolForMixing = storageRequired * (1 - desalRatio);
-    
+
     const roRecoveryRate = activeROInputCap > 0 ? (activeROOutputCap / activeROInputCap) : 1;
     const rawWaterForRO = desalVolNeeded > 0 ? (desalVolNeeded / roRecoveryRate) : 0;
     const totalWellWaterNeeded = wellVolForMixing + rawWaterForRO;
@@ -130,11 +130,11 @@ export default function WaterCalculator() {
     const supplyPondArea = supplyPondVolume / pondDepth;
     const supplyPondSide = Math.sqrt(supplyPondArea);
 
-    const roRunDays = Number(scenario.roRunDays) || config.storageDays; 
-    
+    const roRunDays = Number(scenario.roRunDays) || config.storageDays;
+
     const totalOpHours = activeROOutputCap > 0 ? desalVolNeeded / activeROOutputCap : 0;
     const dailyOpHours = totalOpHours / roRunDays;
-    
+
     const totalWellOpHours = wellCapacity > 0 ? totalWellWaterNeeded / wellCapacity : 0;
     const dailyWellOpHours = totalWellOpHours / roRunDays;
 
@@ -146,7 +146,7 @@ export default function WaterCalculator() {
 
     const mixingRatioVol = desalVolNeeded > 0 ? (wellVolForMixing / desalVolNeeded) : 0;
     const instantaneousMixingDemand = activeROOutputCap * mixingRatioVol;
-    
+
     const instantaneousTotalDemand = activeROInputCap + instantaneousMixingDemand;
     const flowBalance = wellCapacity - instantaneousTotalDemand;
     const isFlowDeficit = flowBalance < 0;
@@ -180,7 +180,8 @@ export default function WaterCalculator() {
       instantaneousMixingDemand,
       instantaneousTotalDemand,
       flowBalance,
-      isFlowDeficit
+      isFlowDeficit,
+      supplyPondFillTime: wellCapacity > 0 ? (supplyPondVolume / wellCapacity) : 0
     };
   });
 
@@ -343,7 +344,7 @@ export default function WaterCalculator() {
 
   return (
     <div className="max-w-full mx-auto p-4 lg:p-6 space-y-6">
-      
+
       {/* 1. TOP ROW: CONFIGURATION */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex justify-between items-center mb-4">
@@ -362,22 +363,22 @@ export default function WaterCalculator() {
             <button onClick={() => fileInputRef.current.click()} className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition border border-blue-200">
               ⬆ Import Config
             </button>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleImport} 
-              className="hidden" 
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImport}
+              className="hidden"
               accept="application/json"
             />
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-           <ConfigInput label="Well Salinity (ppm)" value={config.wellSalinity} onChange={v => updateConfig('wellSalinity', v)} />
-           <ConfigInput label="Desal Salinity (ppm)" value={config.desalSalinity} onChange={v => updateConfig('desalSalinity', v)} />
-           <ConfigInput label="Target Salinity (ppm)" value={config.targetSalinity} onChange={v => updateConfig('targetSalinity', v)} highlight />
-           <ConfigInput label="Storage Buffer (Days)" value={config.storageDays} onChange={v => updateConfig('storageDays', v)} />
-           <ConfigInput label="Pond Depth (m)" value={config.pondDepth} onChange={v => updateConfig('pondDepth', v)} highlight />
-           <ConfigInput label="Palms/Dunum" value={palmsPerDunum} onChange={setPalmsPerDunum} highlight />
+          <ConfigInput label="Well Salinity (ppm)" value={config.wellSalinity} onChange={v => updateConfig('wellSalinity', v)} />
+          <ConfigInput label="Desal Salinity (ppm)" value={config.desalSalinity} onChange={v => updateConfig('desalSalinity', v)} />
+          <ConfigInput label="Target Salinity (ppm)" value={config.targetSalinity} onChange={v => updateConfig('targetSalinity', v)} highlight />
+          <ConfigInput label="Storage Buffer (Days)" value={config.storageDays} onChange={v => updateConfig('storageDays', v)} />
+          <ConfigInput label="Pond Depth (m)" value={config.pondDepth} onChange={v => updateConfig('pondDepth', v)} highlight />
+          <ConfigInput label="Palms/Dunum" value={palmsPerDunum} onChange={setPalmsPerDunum} highlight />
         </div>
       </div>
 
@@ -449,25 +450,25 @@ export default function WaterCalculator() {
             <div className="p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                 <KpiCard title="Total Palms" value={result.totalTrees.toLocaleString()} sub="Scenario tree count" color="bg-gradient-to-br from-green-500 to-green-600" icon="🌴" />
-                <KpiCard title={`Storage (7 Days)`} value={`${result.storageRequired.toLocaleString(undefined, {maximumFractionDigits:0})} m³`} sub={`Irrigation buffer`} color="bg-gradient-to-br from-blue-500 to-blue-600" icon="🏗️" />
+                <KpiCard title={`Storage (7 Days)`} value={`${result.storageRequired.toLocaleString(undefined, { maximumFractionDigits: 0 })} m³`} sub={`Irrigation buffer`} color="bg-gradient-to-br from-blue-500 to-blue-600" icon="🏗️" />
                 <KpiCard title={`Prod. Ponds (${result.numPonds}x)`} value={`${result.sidePerPond.toFixed(0)}m x ${result.sidePerPond.toFixed(0)}m`} sub={`${result.areaPerPond.toFixed(0)} m² each`} color="bg-gradient-to-br from-cyan-500 to-cyan-600" icon="📏" />
                 <KpiCard title="Supply Pond" value={`${result.supplyPondSide.toFixed(0)}m x ${result.supplyPondSide.toFixed(0)}m`} sub={`${result.supplyPondVolume.toLocaleString()} m³ (${result.scenario.supplyBufferHours}h)`} color="bg-gradient-to-br from-teal-500 to-teal-600" icon="💧" />
-                <KpiCard title="Peak Demand" value={`${result.dailyPeakDemand.toLocaleString(undefined, {maximumFractionDigits:0})} m³`} sub="Daily consumption" color="bg-gradient-to-br from-orange-500 to-orange-600" icon="📈" />
+                <KpiCard title="Peak Demand" value={`${result.dailyPeakDemand.toLocaleString(undefined, { maximumFractionDigits: 0 })} m³`} sub="Daily consumption" color="bg-gradient-to-br from-orange-500 to-orange-600" icon="📈" />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <DetailBox title="Desalination" icon="🏭" color="blue" main={`${result.desalVolNeeded.toLocaleString(undefined, {maximumFractionDigits:0})} m³`}>
-                    <div className="text-xs space-y-1">
-                        <div>Load: <strong>{result.dailyOpHours.toFixed(1)} h/day</strong></div>
-                        <div>Feed: <strong>{result.rawWaterForRO.toLocaleString(undefined, {maximumFractionDigits:0})} m³</strong></div>
-                    </div>
+                <DetailBox title="Desalination" icon="🏭" color="blue" main={`${result.desalVolNeeded.toLocaleString(undefined, { maximumFractionDigits: 0 })} m³`}>
+                  <div className="text-xs space-y-1">
+                    <div>Load: <strong>{result.dailyOpHours.toFixed(1)} h/day</strong></div>
+                    <div>Feed: <strong>{result.rawWaterForRO.toLocaleString(undefined, { maximumFractionDigits: 0 })} m³</strong></div>
+                  </div>
                 </DetailBox>
 
-                <DetailBox title="Wells" icon="🌊" color="teal" main={`${result.totalWellWaterNeeded.toLocaleString(undefined, {maximumFractionDigits:0})} m³`}>
-                    <div className="text-xs space-y-1">
-                        <div>Load: <strong>{result.dailyWellOpHours.toFixed(1)} h/day</strong></div>
-                        <div>Direct: <strong>{result.wellVolForMixing.toLocaleString(undefined, {maximumFractionDigits:0})} m³</strong></div>
-                    </div>
+                <DetailBox title="Wells" icon="🌊" color="teal" main={`${result.totalWellWaterNeeded.toLocaleString(undefined, { maximumFractionDigits: 0 })} m³`}>
+                  <div className="text-xs space-y-1">
+                    <div>Load: <strong>{result.dailyWellOpHours.toFixed(1)} h/day</strong></div>
+                    <div>Direct: <strong>{result.wellVolForMixing.toLocaleString(undefined, { maximumFractionDigits: 0 })} m³</strong></div>
+                  </div>
                 </DetailBox>
 
                 <div className={`rounded-xl p-5 border ${result.isFlowDeficit ? 'bg-red-50 border-red-100' : 'bg-teal-50 border-teal-100'}`}>
@@ -479,7 +480,10 @@ export default function WaterCalculator() {
                     <div className="flex justify-between"><span>Well Supply:</span> <strong>{result.wellCapacity} m³/h</strong></div>
                     <div className="flex justify-between"><span>System Need:</span> <strong>{result.instantaneousTotalDemand.toFixed(0)} m³/h</strong></div>
                     <div className={`flex justify-between pt-1 border-t ${result.isFlowDeficit ? 'text-red-700' : 'text-teal-700'}`}>
-                        <span>Net Flow:</span> <strong>{result.flowBalance.toFixed(0)} m³/h</strong>
+                      <span>Net Flow:</span> <strong>{result.flowBalance.toFixed(0)} m³/h</strong>
+                    </div>
+                    <div className="flex justify-between mt-1 text-purple-600">
+                      <span>Pond Fill:</span> <strong>{result.supplyPondFillTime.toFixed(1)} h</strong>
                     </div>
                   </div>
                 </div>
@@ -491,8 +495,19 @@ export default function WaterCalculator() {
                   </div>
                   <div className="text-[11px] space-y-1">
                     <div className="flex justify-between text-gray-700"><span>Status:</span> <strong>{result.dailyOpHours > 24 ? "OVERLOAD" : "OPTIMAL"}</strong></div>
-                    <div className="flex justify-between text-gray-500"><span>Desal Load:</span> <strong>{(result.dailyOpHours/24*100).toFixed(0)}%</strong></div>
-                    <div className="flex justify-between text-gray-500"><span>Well Load:</span> <strong>{(result.dailyWellOpHours/24*100).toFixed(0)}%</strong></div>
+                    <div className="flex justify-between items-center text-gray-500">
+                      <span>Mixing Ratio:</span>
+                      <div className="text-right">
+                        <div className="font-bold">{(result.desalRatio * 100).toFixed(0)}% / {(100 - result.desalRatio * 100).toFixed(0)}%</div>
+                        {result.desalRatio > 0 && result.desalRatio < 1 && (
+                          <div className="text-[9px] text-purple-600 font-bold uppercase">
+                            RO {(result.desalRatio / (1 - result.desalRatio)).toFixed(1)} : 1 Well
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-gray-500"><span>Desal Load:</span> <strong>{(result.dailyOpHours / 24 * 100).toFixed(0)}%</strong></div>
+                    <div className="flex justify-between text-gray-500"><span>Well Load:</span> <strong>{(result.dailyWellOpHours / 24 * 100).toFixed(0)}%</strong></div>
                   </div>
                 </div>
               </div>
@@ -564,14 +579,14 @@ function ToggleList({ title, items, selectedIds, onToggle, color }) {
 }
 
 function DetailBox({ title, icon, color, main, children }) {
-    const colors = { blue: 'bg-blue-50 border-blue-100 text-blue-600', teal: 'bg-teal-50 border-teal-100 text-teal-600' };
-    return (
-        <div className={`rounded-xl p-5 border ${colors[color]}`}>
-            <div className="flex items-center gap-3 mb-2"><span className="text-2xl">{icon}</span><div className="text-xs font-bold uppercase">{title}</div></div>
-            <div className="text-xl font-bold text-gray-800 mb-1">{main}</div>
-            {children}
-        </div>
-    );
+  const colors = { blue: 'bg-blue-50 border-blue-100 text-blue-600', teal: 'bg-teal-50 border-teal-100 text-teal-600' };
+  return (
+    <div className={`rounded-xl p-5 border ${colors[color]}`}>
+      <div className="flex items-center gap-3 mb-2"><span className="text-2xl">{icon}</span><div className="text-xs font-bold uppercase">{title}</div></div>
+      <div className="text-xl font-bold text-gray-800 mb-1">{main}</div>
+      {children}
+    </div>
+  );
 }
 
 function KpiCard({ title, value, sub, color, icon }) {
