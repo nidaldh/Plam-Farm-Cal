@@ -23,7 +23,8 @@ export default function WaterCalculator() {
     desalSalinity: 100,
     targetSalinity: 1200,
     storageDays: 7,
-    pondDepth: 4
+    pondDepth: 4,
+    supplyPondDepth: 4
   });
 
   const [palmsPerDunum, setPalmsPerDunum] = useState(15);
@@ -127,7 +128,8 @@ export default function WaterCalculator() {
 
     const supplyBufferHours = Number(scenario.supplyBufferHours) || 0;
     const supplyPondVolume = activeROInputCap * supplyBufferHours;
-    const supplyPondArea = supplyPondVolume / pondDepth;
+    const supplyPondDepth = config.supplyPondDepth || 1;
+    const supplyPondArea = supplyPondVolume / supplyPondDepth;
     const supplyPondSide = Math.sqrt(supplyPondArea);
 
     const roRunDays = Number(scenario.roRunDays) || config.storageDays;
@@ -377,7 +379,8 @@ export default function WaterCalculator() {
           <ConfigInput label="Desal Salinity (ppm)" value={config.desalSalinity} onChange={v => updateConfig('desalSalinity', v)} />
           <ConfigInput label="Target Salinity (ppm)" value={config.targetSalinity} onChange={v => updateConfig('targetSalinity', v)} highlight />
           <ConfigInput label="Storage Buffer (Days)" value={config.storageDays} onChange={v => updateConfig('storageDays', v)} />
-          <ConfigInput label="Pond Depth (m)" value={config.pondDepth} onChange={v => updateConfig('pondDepth', v)} highlight />
+          <ConfigInput label="Storage Pond Depth (m)" value={config.pondDepth} onChange={v => updateConfig('pondDepth', v)} highlight />
+          <ConfigInput label="Supply Pond Depth (m)" value={config.supplyPondDepth} onChange={v => updateConfig('supplyPondDepth', v)} highlight />
           <ConfigInput label="Palms/Dunum" value={palmsPerDunum} onChange={setPalmsPerDunum} highlight />
         </div>
       </div>
